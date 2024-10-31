@@ -1,6 +1,7 @@
 package radix
 
 import (
+	"errors"
 	"sort"
 	"strings"
 )
@@ -68,16 +69,22 @@ func (n *node) addEdge(e edge) {
 	n.edges[idx] = e
 }
 
-func (n *node) updateEdge(label byte, node *node) {
-	num := len(n.edges)
-	idx := sort.Search(num, func(i int) bool {
-		return n.edges[i].label >= label
-	})
-	if idx < num && n.edges[idx].label == label {
-		n.edges[idx].node = node
-		return
+func (n *node) findEdgeIndex(label byte) (int, bool) {
+	for i, e := range n.edges {
+		if e.label == label {
+			return i, true
+		}
 	}
-	panic("replacing missing edge")
+	return -1, false
+}
+
+func (n *node) updateEdge(label byte, node *node) error {
+	idx, found := n.findEdgeIndex(label)
+	if !found {
+		return errors.New("edge not found")
+	}
+	n.edges[idx].node = node
+	return nil
 }
 
 func (n *node) getEdge(label byte) *node {
@@ -166,9 +173,34 @@ func longestPrefix(k1, k2 string) int {
 	return i
 }
 
+// Optimize 递归优化树，合并具有共同前缀的子节点
+func (t *Tree) Optimize() {
+	t.root.optimizeNode()
+}
+
+func (n *node) optimizeNode() {
+	// 遍历所有子节点，尝试合并
+	for i := 0; i < len(n.edges)-1; i++ {
+		current := n.edges[i].node
+		next := n.edges[i+1].node
+
+		// 检查当前节点和下一个节点是否可以合并
+		if current != nil && next != nil && current.prefix == next.prefix {
+			// 合并逻辑，这里简单地扩展prefix并重新分配子节点
+			current.prefix += next.prefix
+			current.edges = append(current.edges, next.edges...)
+			// 删除下一个节点
+			n.edges = append(n.edges[:i+1], n.edges[i+2:]...)
+			// 递减索引以重新检查当前位置
+			i--
+		}
+		current.optimizeNode()
+	}
+}
+
 // Insert is used to add a newentry or update
 // an existing entry. Returns true if an existing record is updated.
-func (t *Tree) Insert(s string, v uint32) bool {
+func (t *Tree) Insert(s string, v uint32) (bool, error) {
 	var parent *node
 	n := t.root
 	search := s
@@ -177,7 +209,7 @@ func (t *Tree) Insert(s string, v uint32) bool {
 		if len(search) == 0 {
 			if n.isLeaf() {
 				n.leaf.val = addIfNotExist(n.leaf.val, v)
-				return true
+				return true, nil
 			}
 
 			n.leaf = &leafNode{
@@ -185,7 +217,7 @@ func (t *Tree) Insert(s string, v uint32) bool {
 				val: []uint32{v},
 			}
 			t.size++
-			return false
+			return false, nil
 		}
 
 		// Look for the edge
@@ -206,7 +238,7 @@ func (t *Tree) Insert(s string, v uint32) bool {
 			}
 			parent.addEdge(e)
 			t.size++
-			return false
+			return false, nil
 		}
 
 		// Determine longest prefix of the search key on match
@@ -221,7 +253,10 @@ func (t *Tree) Insert(s string, v uint32) bool {
 		child := &node{
 			prefix: search[:commonPrefix],
 		}
-		parent.updateEdge(search[0], child)
+		err := parent.updateEdge(search[0], child)
+		if err != nil {
+			return false, err
+		}
 
 		// Restore the existing node
 		child.addEdge(edge{
@@ -240,7 +275,7 @@ func (t *Tree) Insert(s string, v uint32) bool {
 		search = search[commonPrefix:]
 		if len(search) == 0 {
 			child.leaf = leaf
-			return false
+			return false, nil
 		}
 
 		// Create a new edge for the node
@@ -251,7 +286,7 @@ func (t *Tree) Insert(s string, v uint32) bool {
 				prefix: search,
 			},
 		})
-		return false
+		return false, nil
 	}
 }
 

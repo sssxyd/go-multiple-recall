@@ -1,4 +1,4 @@
-package basic
+package com
 
 type ApiResult struct {
 	Code   int         `json:"code"`

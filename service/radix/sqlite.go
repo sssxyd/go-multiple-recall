@@ -14,13 +14,12 @@ import (
 )
 
 type DictWord struct {
-	ID             int    `db:"id"`
-	Dict           string `db:"dict"`
-	Name           string `db:"name"`
-	Data           string `db:"data"`
-	WordChars      string `db:"word_chars"`
-	WordPinyin     string `db:"word_pinyin"`
-	WordPinyinAbbr string `db:"word_pinyin_abbr"`
+	ID         int    `db:"id"`
+	Dict       string `db:"dict"`
+	Name       string `db:"name"`
+	Data       string `db:"data"`
+	WordChars  string `db:"word_chars"`
+	WordPinyin string `db:"word_pinyin"`
 }
 
 type DictWordRepeat struct {
@@ -28,7 +27,7 @@ type DictWordRepeat struct {
 	Dict        string `db:"dict"`
 	Type        int    `db:"type"`
 	Word        string `db:"word"`
-	WordLen     int    `db:"word_len`
+	WordLen     int    `db:"word_len"`
 	RepeatCount int    `db:"repeat_count"`
 }
 
@@ -36,7 +35,16 @@ type IndexWord struct {
 	ID     int    `db:"id"`
 	Type   int    `db:"type"`
 	Word   string `db:"word"`
-	DictId []int
+	DictId map[int]bool
+}
+
+func (iw *IndexWord) Merge(dictId map[int]bool) {
+	if iw.DictId == nil {
+		iw.DictId = make(map[int]bool)
+	}
+	for k, v := range dictId {
+		iw.DictId[k] = v
+	}
 }
 
 type RuneTrieNode struct {
@@ -44,16 +52,17 @@ type RuneTrieNode struct {
 	Type     int    `db:"type"`
 	Rune     int    `db:"rune"`
 	ParentID int    `db:"parent_id"`
-	IndexIDs string `db:"index_ids"`
+	IndexID  string `db:"index_id"`
 	LeafSize int    `db:"leaf_size"`
 }
 
 type StrRadixNode struct {
-	ID       int    `db:"id"`
-	ParentID int    `db:"parent_id"`
-	Type     int    `db:"type"`
-	Key      string `db:"key"`
-	IndexIDs string `db:"index_ids"`
+	ID          int    `db:"id"`
+	ParentID    int    `db:"parent_id"`
+	HierarchyID string `db:"hierarchy_id"`
+	Type        int    `db:"type"`
+	Key         string `db:"key"`
+	IndexID     string `db:"index_id"`
 }
 
 type IDRange struct {
@@ -71,8 +80,8 @@ func (r *IDRange) GetRangeBatch(batch int) int {
 }
 
 func (r *IDRange) Split(batch int, worker int) []IDRange {
-	if batch <= r.Count {
-		return []IDRange{IDRange{r.MinId, r.MaxId, r.Count}}
+	if batch > r.Count { // 批次数大于总数，则只有一个批次
+		return []IDRange{{r.MinId, r.MaxId, r.Count}}
 	}
 
 	if worker <= 0 { // 默认分成2n个批次
@@ -107,24 +116,27 @@ func (r *IDRange) Split(batch int, worker int) []IDRange {
  * @return *sqlx.DB 可写数据库连接，最大连接数为1
  * @return error 错误信息
  */
-func initialize_indexdb(index_path string) (*sqlx.DB, error) {
-	// 创建目录
-	err := os.MkdirAll(filepath.Dir(index_path), os.ModePerm)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create directory: %w", err)
-	}
+func initialize_indexdb(index_path string, create_table bool) (*sqlx.DB, error) {
 
 	// 检查文件是否存在
-	if _, err := os.Stat(index_path); err == nil {
-		return nil, fmt.Errorf("database file[%s] already exists", index_path)
-	}
+	if create_table {
+		// 创建目录
+		err := os.MkdirAll(filepath.Dir(index_path), os.ModePerm)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create directory: %w", err)
+		}
 
-	// 文件不存在，创建空文件
-	file, err := os.Create(index_path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create database file: %w", err)
+		if _, err := os.Stat(index_path); err == nil {
+			return nil, fmt.Errorf("database file[%s] already exists", index_path)
+		}
+
+		// 文件不存在，创建空文件
+		file, err := os.Create(index_path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create database file: %w", err)
+		}
+		file.Close()
 	}
-	file.Close()
 
 	// 连接数据库
 	db, err := sqlx.Connect("sqlite3", index_path)
@@ -145,87 +157,91 @@ func initialize_indexdb(index_path string) (*sqlx.DB, error) {
 	db.SetConnMaxLifetime(6 * time.Hour)
 
 	// 定义各表和索引的 SQL 语句
-	statements := []string{
-		`CREATE TABLE "dict_words" (
-            "id" INTEGER NOT NULL UNIQUE,
-            "dict" TEXT NOT NULL,
-            "name" TEXT NOT NULL,
-            "data" TEXT NOT NULL,
-            "word_chars" TEXT NOT NULL,
-            "word_pinyin" TEXT NOT NULL,
-            "word_pinyin_abbr" TEXT NOT NULL,
-            PRIMARY KEY("id" AUTOINCREMENT)
-        )`,
+	if create_table {
+		statements := []string{
+			`CREATE TABLE "dict_words" (
+				"id" INTEGER NOT NULL UNIQUE,
+				"dict" TEXT NOT NULL,
+				"name" TEXT NOT NULL,
+				"data" TEXT NOT NULL,
+				"word_chars" TEXT NOT NULL,
+				"word_pinyin" TEXT NOT NULL,
+				PRIMARY KEY("id" AUTOINCREMENT)
+			)`,
 
-		`CREATE TABLE "dict_word_repeats" (
-			"id"	INTEGER NOT NULL UNIQUE,
-			"dict"	TEXT NOT NULL,
-			"type"	INTEGER NOT NULL,
-			"word"	TEXT NOT NULL,
-			"word_len" INTEGER NOT NULL,
-			"repeat_count"	INTEGER NOT NULL,
-			PRIMARY KEY("id" AUTOINCREMENT)
-		)`,
+			`CREATE TABLE "dict_word_repeats" (
+				"id"	INTEGER NOT NULL UNIQUE,
+				"dict"	TEXT NOT NULL,
+				"type"	INTEGER NOT NULL,
+				"word"	TEXT NOT NULL,
+				"word_len" INTEGER NOT NULL,
+				"repeat_count"	INTEGER NOT NULL,
+				PRIMARY KEY("id" AUTOINCREMENT)
+			)`,
 
-		`CREATE TABLE "index_words" (
-			"id"	INTEGER NOT NULL UNIQUE,
-			"type"	INTEGER NOT NULL,
-			"word"	TEXT NOT NULL,
-			PRIMARY KEY("id" AUTOINCREMENT)
-		)`,
+			`CREATE TABLE "index_words" (
+				"id"	INTEGER NOT NULL UNIQUE,
+				"type"	INTEGER NOT NULL,
+				"word"	TEXT NOT NULL,
+				PRIMARY KEY("id" AUTOINCREMENT)
+			)`,
 
-		`CREATE UNIQUE INDEX "idx_index_word_unique" ON "index_words" (
-			"type",
-			"word"
-		)`,
+			`CREATE UNIQUE INDEX "idx_index_words_word" ON "index_words" (
+				"word"
+			);`,
 
-		`CREATE TABLE "dict_index_ids" (
-            "id" INTEGER NOT NULL UNIQUE,
-            "dict_id" INTEGER NOT NULL,
-            "index_id" INTEGER NOT NULL,
-            PRIMARY KEY("id" AUTOINCREMENT)
-        )`,
+			`CREATE TABLE "dict_index_ids" (
+				"id" INTEGER NOT NULL UNIQUE,
+				"dict_id" INTEGER NOT NULL,
+				"index_id" INTEGER NOT NULL,
+				PRIMARY KEY("id" AUTOINCREMENT)
+			)`,
 
-		`CREATE INDEX "idx_dict_index_id" ON "dict_index_ids" (
-            "index_id" ASC
-        )`,
+			`CREATE INDEX "idx_dict_index_ids_index_id" ON "dict_index_ids" (
+				"index_id" ASC
+			)`,
 
-		`CREATE TABLE "rune_trie_nodes" (
-            "id" INTEGER NOT NULL UNIQUE,
-            "type" INTEGER NOT NULL,
-            "rune" INTEGER NOT NULL,
-            "parent_id" INTEGER NOT NULL,
-            "index_ids" TEXT NOT NULL,
-            "leaf_size" INTEGER NOT NULL,
-            PRIMARY KEY("id" AUTOINCREMENT)
-        )`,
+			`CREATE TABLE "rune_trie_nodes" (
+				"id" INTEGER NOT NULL UNIQUE,
+				"type" INTEGER NOT NULL,
+				"rune" INTEGER NOT NULL,
+				"parent_id" INTEGER NOT NULL,
+				"index_id" TEXT NOT NULL,
+				"leaf_size" INTEGER NOT NULL,
+				PRIMARY KEY("id" AUTOINCREMENT)
+			)`,
 
-		`CREATE INDEX "idx_rune_trie_parent_id" ON "rune_trie_nodes" (
-            "parent_id" ASC
-        )`,
+			`CREATE INDEX "idx_rune_trie_nodes_parent_id" ON "rune_trie_nodes" (
+				"parent_id" ASC
+			)`,
 
-		`CREATE TABLE "str_radix_nodes" (
-            "id" INTEGER NOT NULL UNIQUE,
-            "parent_id" INTEGER NOT NULL,
-            "type" INTEGER NOT NULL,
-            "key" TEXT NOT NULL,
-            "index_ids" TEXT NOT NULL,
-            PRIMARY KEY("id" AUTOINCREMENT)
-        )`,
+			`CREATE TABLE "str_radix_nodes" (
+				"id" INTEGER NOT NULL UNIQUE,
+				"parent_id" INTEGER NOT NULL,
+				"hierarchy_id"	TEXT NOT NULL,
+				"type" INTEGER NOT NULL,
+				"key" TEXT NOT NULL,
+				"index_id" TEXT NOT NULL,
+				PRIMARY KEY("id" AUTOINCREMENT)
+			)`,
 
-		`CREATE INDEX "idx_str_radix_parent_id" ON "str_radix_nodes" (
-            "parent_id"
-        )`,
-	}
+			`CREATE INDEX "idx_str_radix_nodes_parent_id" ON "str_radix_nodes" (
+				"parent_id" ASC
+			)`,
 
-	// 逐条执行 SQL 语句
-	for _, stmt := range statements {
-		if _, err := db.Exec(stmt); err != nil {
-			db.Close()
-			return nil, fmt.Errorf("failed to execute statement: %v, error: %w", stmt, err)
+			`CREATE INDEX "idx_str_radix_nodes_hierarchy_id" ON "str_radix_nodes" (
+				"hierarchy_id"
+			)`,
+		}
+
+		// 逐条执行 SQL 语句
+		for _, stmt := range statements {
+			if _, err := db.Exec(stmt); err != nil {
+				db.Close()
+				return nil, fmt.Errorf("failed to execute statement: %v, error: %w", stmt, err)
+			}
 		}
 	}
-
 	return db, nil
 }
 

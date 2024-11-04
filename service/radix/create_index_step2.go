@@ -28,16 +28,20 @@ func findCommonPrefixesAndSuffixes(words []string, minFreq int) (map[string]int,
 		}
 		for i := 2; i <= 6 && i <= rune_len && rune_len-i > 2; i++ {
 			prefix := string(runes[:i])
-			if HasHanChar(prefix) {
+			if StartWithHanChar(prefix) && EndWithHanChar(prefix) { // 前缀必须以汉字开头，以汉字结尾
 				prefixFreq[prefix]++
+			} else {
+				break
 			}
 		}
 
 		// 遍历后缀
 		for i := 2; i <= 6 && i <= rune_len && rune_len-i > 2; i++ {
 			suffix := string(runes[rune_len-i:])
-			if HasHanChar(suffix) {
+			if IsPureHanWord(suffix) { // 后缀必须是纯汉字
 				suffixFreq[suffix]++
+			} else {
+				break
 			}
 		}
 	}
@@ -178,6 +182,7 @@ func step2_proc_write_dict_word_repeats(db *sqlx.DB, recordCh <-chan []DictWordR
 			log.Printf("事务提交失败: %v", err)
 			tx.Rollback()
 		} else {
+			tx.Commit()
 			log.Printf("成功插入 %d 条记录\n", len(batch))
 		}
 	}

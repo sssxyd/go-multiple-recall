@@ -67,14 +67,13 @@ func step1_proc_read_csv_dict_words(dictName string, filePath string, recordCh c
 			data = "{}"
 		}
 
-		wordChars, wordPinyin, wordPinyinAbbr := AnalyzeDictWord(name)
+		sentence := NewIndexSentence(name)
 		batch = append(batch, DictWord{
-			Dict:           dictName,
-			Name:           name,
-			Data:           data,
-			WordChars:      wordChars,
-			WordPinyin:     wordPinyin,
-			WordPinyinAbbr: wordPinyinAbbr,
+			Dict:       dictName,
+			Name:       name,
+			Data:       data,
+			WordChars:  sentence.ToString(),
+			WordPinyin: sentence.ToPinyin(),
 		})
 
 		if len(batch) >= 1000 { // 每1000条发送一次
@@ -104,7 +103,7 @@ func step1_proc_write_dict_words(db *sqlx.DB, recordCh <-chan []DictWord) (int, 
 			continue
 		}
 
-		stmt, err := tx.Prepare("INSERT INTO dict_words (dict, name, data, word_chars, word_pinyin, word_pinyin_abbr) VALUES (?, ?, ?, ?, ?, ?)")
+		stmt, err := tx.Prepare("INSERT INTO dict_words (dict, name, data, word_chars, word_pinyin) VALUES (?, ?, ?, ?, ?)")
 		if err != nil {
 			log.Printf("准备语句失败: %v", err)
 			tx.Rollback()
@@ -112,7 +111,7 @@ func step1_proc_write_dict_words(db *sqlx.DB, recordCh <-chan []DictWord) (int, 
 		}
 
 		for _, rec := range batch {
-			_, err := stmt.Exec(rec.Dict, rec.Name, rec.Data, rec.WordChars, rec.WordPinyin, rec.WordPinyinAbbr)
+			_, err := stmt.Exec(rec.Dict, rec.Name, rec.Data, rec.WordChars, rec.WordPinyin)
 			if err != nil {
 				log.Printf("插入记录失败: %v", err)
 			} else {
@@ -126,6 +125,7 @@ func step1_proc_write_dict_words(db *sqlx.DB, recordCh <-chan []DictWord) (int, 
 			tx.Rollback()
 		} else {
 			log.Printf("成功插入 %d 条记录\n", len(batch))
+			tx.Commit()
 		}
 	}
 	return read, count

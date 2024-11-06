@@ -103,7 +103,11 @@ func (is *index_phrase) IndexPhraseTrim(prefixes []string, suffixes []string, en
 func (is *index_phrase) SplitToIndexWords(maskCount int, outOfOrder bool) []string {
 
 	if is.Length() < 4 {
-		return []string{is.ToString()}
+		if _index_chars_length(is.index_chars) < 3 {
+			return []string{""}
+		} else {
+			return []string{is.ToString()}
+		}
 	}
 
 	phrase_str := is.ToString()
@@ -291,7 +295,7 @@ func NewIndexSentence(sentence string) *IndexSentence {
 		for _, sub := range subs {
 			cw := classify_word(sub)
 			if cw == 0 || cw == 1 {
-				if current_word != "" {
+				if current_word != "" { // 汉字和数字可以连续作为一个词
 					real_words = append(real_words, current_word)
 					current_word = ""
 				}

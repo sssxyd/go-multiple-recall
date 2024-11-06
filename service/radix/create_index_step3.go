@@ -10,6 +10,17 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+func _step3_calc_index_word_weight(word string) int {
+	subs := strings.Split(word, " ")
+	if len(subs) > 1 {
+		return len(subs)
+	}
+	if HasHanChar(word) {
+		return len([]rune(word))
+	}
+	return 1
+}
+
 func _step3_split_dict_word_to_index_words(dictWords []DictWord, dictPrefixs map[string][]string, dictSuffixs map[string][]string, maskCount int) []IndexWord {
 	charWordIndexSet := make(map[string]IndexWord)
 	for _, dw := range dictWords {
@@ -20,9 +31,10 @@ func _step3_split_dict_word_to_index_words(dictWords []DictWord, dictPrefixs map
 		for _, sub := range index_words {
 			if iw, exist := charWordIndexSet[sub]; !exist {
 				charWordIndexSet[sub] = IndexWord{
-					Type:   0,
-					Word:   sub,
-					DictId: map[int]bool{dw.ID: true},
+					Type:    0,
+					Word:    sub,
+					WordLen: _step3_calc_index_word_weight(sub),
+					DictId:  map[int]bool{dw.ID: true},
 				}
 			} else {
 				iw.DictId[dw.ID] = true
@@ -40,9 +52,10 @@ func _step3_split_dict_word_to_index_words(dictWords []DictWord, dictPrefixs map
 				continue
 			}
 			pyWord := IndexWord{
-				Type:   1,
-				Word:   py,
-				DictId: iw.DictId,
+				Type:    1,
+				Word:    py,
+				WordLen: _step3_calc_index_word_weight(py),
+				DictId:  iw.DictId,
 			}
 			results = append(results, pyWord)
 		}
@@ -198,13 +211,13 @@ func _step3_insert_index_word(tx *sqlx.Tx, indexWords []IndexWord) int {
 		batch := indexWords[i:end]
 
 		// 插入新的索引词
-		stmt, err := tx.Prepare("INSERT INTO index_words (type, word) VALUES (?, ?)")
+		stmt, err := tx.Prepare("INSERT INTO index_words (type, word, word_len) VALUES (?, ?, ?)")
 		if err != nil {
 			tx.Rollback()
 			log.Fatalf("准备语句失败: %v", err)
 		}
 		for i := range batch {
-			result, err := stmt.Exec(batch[i].Type, batch[i].Word)
+			result, err := stmt.Exec(batch[i].Type, batch[i].Word, batch[i].WordLen)
 			if err != nil {
 				tx.Rollback()
 				log.Fatalf("插入记录失败: %v", err)

@@ -32,10 +32,11 @@ type DictWordRepeat struct {
 }
 
 type IndexWord struct {
-	ID     int    `db:"id"`
-	Type   int    `db:"type"`
-	Word   string `db:"word"`
-	DictId map[int]bool
+	ID      int    `db:"id"`
+	Type    int    `db:"type"`
+	Word    string `db:"word"`
+	WordLen int    `db:"word_len"`
+	DictId  map[int]bool
 }
 
 func (iw *IndexWord) Merge(dictId map[int]bool) {
@@ -45,15 +46,6 @@ func (iw *IndexWord) Merge(dictId map[int]bool) {
 	for k, v := range dictId {
 		iw.DictId[k] = v
 	}
-}
-
-type RuneTrieNode struct {
-	ID       int    `db:"id"`
-	Type     int    `db:"type"`
-	Rune     int    `db:"rune"`
-	ParentID int    `db:"parent_id"`
-	IndexID  string `db:"index_id"`
-	LeafSize int    `db:"leaf_size"`
 }
 
 type StrRadixNode struct {
@@ -172,17 +164,18 @@ func initialize_indexdb(index_path string, create_table bool) (*sqlx.DB, error) 
 			`CREATE TABLE "dict_word_repeats" (
 				"id"	INTEGER NOT NULL UNIQUE,
 				"dict"	TEXT NOT NULL,
-				"type"	INTEGER NOT NULL,
+				"type"	INTEGER NOT NULL DEFAULT 0,
 				"word"	TEXT NOT NULL,
-				"word_len" INTEGER NOT NULL,
+				"word_len" INTEGER NOT NULL DEFAULT 0,
 				"repeat_count"	INTEGER NOT NULL,
 				PRIMARY KEY("id" AUTOINCREMENT)
 			)`,
 
 			`CREATE TABLE "index_words" (
 				"id"	INTEGER NOT NULL UNIQUE,
-				"type"	INTEGER NOT NULL,
+				"type"	INTEGER NOT NULL DEFAULT 0,
 				"word"	TEXT NOT NULL,
+				"word_len" INTEGER NOT NULL DEFAULT 0,
 				PRIMARY KEY("id" AUTOINCREMENT)
 			)`,
 
@@ -192,27 +185,13 @@ func initialize_indexdb(index_path string, create_table bool) (*sqlx.DB, error) 
 
 			`CREATE TABLE "dict_index_ids" (
 				"id" INTEGER NOT NULL UNIQUE,
-				"dict_id" INTEGER NOT NULL,
-				"index_id" INTEGER NOT NULL,
+				"dict_id" INTEGER NOT NULL DEFAULT 0,
+				"index_id" INTEGER NOT NULL DEFAULT 0,
 				PRIMARY KEY("id" AUTOINCREMENT)
 			)`,
 
 			`CREATE INDEX "idx_dict_index_ids_index_id" ON "dict_index_ids" (
 				"index_id" ASC
-			)`,
-
-			`CREATE TABLE "rune_trie_nodes" (
-				"id" INTEGER NOT NULL UNIQUE,
-				"type" INTEGER NOT NULL,
-				"rune" INTEGER NOT NULL,
-				"parent_id" INTEGER NOT NULL,
-				"index_id" TEXT NOT NULL,
-				"leaf_size" INTEGER NOT NULL,
-				PRIMARY KEY("id" AUTOINCREMENT)
-			)`,
-
-			`CREATE INDEX "idx_rune_trie_nodes_parent_id" ON "rune_trie_nodes" (
-				"parent_id" ASC
 			)`,
 
 			`CREATE TABLE "str_radix_nodes" (

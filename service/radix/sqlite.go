@@ -52,9 +52,9 @@ type StrRadixNode struct {
 	ID          int    `db:"id"`
 	ParentID    int    `db:"parent_id"`
 	HierarchyID string `db:"hierarchy_id"`
-	Type        int    `db:"type"`
 	Key         string `db:"key"`
-	IndexID     string `db:"index_id"`
+	IndexCount  int    `db:"index_count"`
+	ChildCount  int    `db:"child_count"`
 }
 
 type IDRange struct {
@@ -196,11 +196,12 @@ func initialize_indexdb(index_path string, create_table bool) (*sqlx.DB, error) 
 
 			`CREATE TABLE "str_radix_nodes" (
 				"id" INTEGER NOT NULL UNIQUE,
-				"parent_id" INTEGER NOT NULL,
-				"hierarchy_id"	TEXT NOT NULL,
-				"type" INTEGER NOT NULL,
+				"parent_id" INTEGER NOT NULL DEFAULT 0,
+				"hierarchy_id"	TEXT NOT NULL DEFAULT '',
 				"key" TEXT NOT NULL,
-				"index_id" TEXT NOT NULL,
+				"weight" INTEGER NOT NULL DEFAULT 0,
+				"index_count" INTEGER NOT NULL DEFAULT 0,
+				"child_count" INTEGER NOT NULL DEFAULT 0,
 				PRIMARY KEY("id" AUTOINCREMENT)
 			)`,
 
@@ -210,6 +211,17 @@ func initialize_indexdb(index_path string, create_table bool) (*sqlx.DB, error) 
 
 			`CREATE INDEX "idx_str_radix_nodes_hierarchy_id" ON "str_radix_nodes" (
 				"hierarchy_id"
+			)`,
+
+			`CREATE TABLE "node_index_ids" (
+				"id"	INTEGER NOT NULL UNIQUE,
+				"node_id"	INTEGER NOT NULL,
+				"index_id"	INTEGER NOT NULL,
+				PRIMARY KEY("id" AUTOINCREMENT)
+			)`,
+
+			`CREATE INDEX "idx_node_index_ids_node_id" ON "node_index_ids" (
+				"node_id" ASC
 			)`,
 		}
 

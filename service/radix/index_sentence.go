@@ -285,6 +285,15 @@ func CreateIndexSentence(words []string) *IndexSentence {
 	return &IndexSentence{index_phrases: phrases}
 }
 
+/* NewIndexSentence 生成索引句子
+ * 1. 将输入句子转换为小写
+ * 2. 按空格分割句子，去除首尾空格
+ * 3. 对每个词进行处理
+ *    3.1. 去除括号，括号内的内容作为一个词
+ *    3.2. 按字符分类，汉字、数字、英文、小数点、左括号、右括号
+ *    3.3. 汉字和数字连续作为一个词
+ * 4. 生成索引句子，包含一个或多个索引词
+ */
 func NewIndexSentence(sentence string) *IndexSentence {
 	input := strings.ToLower(strings.TrimSpace(sentence))
 	words := split_and_trim(input)

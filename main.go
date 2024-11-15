@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"multiple-recall/basic/com"
 	"multiple-recall/service/radix"
 	"path/filepath"
@@ -45,10 +46,10 @@ func main() {
 	// 	log.Printf("Index created at: %s\n", index_path)
 	// }
 
-	index_path := filepath.Join(base_dir, "index", "debug.bin")
+	index_path := filepath.Join(base_dir, "index", "1115.bin")
 	_, err = radix.DebugIndex(index_path, 2, 100)
 	if err != nil {
-		fmt.Printf("Error creating index: %v\n", err)
+		log.Printf("Error creating index: %v\n", err)
 	}
 
 	end := time.Now().UnixMilli()

@@ -49,12 +49,29 @@ func (iw *IndexWord) Merge(dictId map[int]bool) {
 }
 
 type StrRadixNode struct {
-	ID          int    `db:"id"`
-	ParentID    int    `db:"parent_id"`
-	HierarchyID string `db:"hierarchy_id"`
-	Key         string `db:"key"`
-	IndexCount  int    `db:"index_count"`
-	ChildCount  int    `db:"child_count"`
+	ID           int    `db:"id"`
+	ParentID     int    `db:"parent_id"`
+	Key          string `db:"key"`
+	HierarchyKey string `db:"hierarchy_key"`
+	IndexID      int    `db:"index_id"`
+	Weight       int    `db:"weight"`
+	ChildCount   int    `db:"child_count"`
+}
+
+func (srn *StrRadixNode) Merge(node *StrRadixNode) {
+	if srn.ID == 0 {
+		srn.ID = node.ID
+	}
+	if srn.ParentID == 0 {
+		srn.ParentID = node.ParentID
+	}
+	if srn.IndexID == 0 {
+		srn.IndexID = node.IndexID
+	}
+	if srn.Weight == 0 {
+		srn.Weight = node.Weight
+	}
+	srn.ChildCount += node.ChildCount
 }
 
 type IDRange struct {
@@ -195,22 +212,22 @@ func initialize_indexdb(index_path string, create_table bool) (*sqlx.DB, error) 
 			)`,
 
 			`CREATE TABLE "str_radix_nodes" (
-				"id" INTEGER NOT NULL UNIQUE,
-				"parent_id" INTEGER NOT NULL DEFAULT 0,
-				"hierarchy_id"	TEXT NOT NULL DEFAULT '',
-				"key" TEXT NOT NULL,
-				"weight" INTEGER NOT NULL DEFAULT 0,
-				"index_count" INTEGER NOT NULL DEFAULT 0,
-				"child_count" INTEGER NOT NULL DEFAULT 0,
+				"id"	INTEGER NOT NULL UNIQUE,
+				"parent_id"	INTEGER NOT NULL DEFAULT 0,
+				"key"	TEXT NOT NULL,
+				"hierarchy_key"	TEXT NOT NULL DEFAULT '',
+				"index_id"	INTEGER NOT NULL DEFAULT 0,
+				"weight"	INTEGER NOT NULL DEFAULT 0,
+				"child_count"	INTEGER NOT NULL DEFAULT 0,
 				PRIMARY KEY("id" AUTOINCREMENT)
-			)`,
+			);`,
 
 			`CREATE INDEX "idx_str_radix_nodes_parent_id" ON "str_radix_nodes" (
 				"parent_id" ASC
 			)`,
 
-			`CREATE INDEX "idx_str_radix_nodes_hierarchy_id" ON "str_radix_nodes" (
-				"hierarchy_id"
+			`CREATE INDEX "idx_str_radix_nodes_hierarchy_key" ON "str_radix_nodes" (
+				"hierarchy_key"
 			)`,
 
 			`CREATE TABLE "node_index_ids" (

@@ -139,7 +139,7 @@ func (is *index_phrase) SplitToIndexWords(maskCount int, outOfOrder bool) []stri
 			})
 
 			// 将排序后的 rune 切片转换回字符串
-			chaos_split_words[string(runes)] = true
+			chaos_split_words[strings.TrimSpace(string(runes))] = true
 		}
 	}
 

@@ -29,6 +29,10 @@ func _step3_split_dict_word_to_index_words(dictWords []DictWord, dictPrefixs map
 		sentence.IndexSentenceTrim(dictPrefixs[dw.Dict], dictSuffixs[dw.Dict], 6)
 		index_words := sentence.SplitToIndexWords(maskCount, true)
 		for _, sub := range index_words {
+			sub = strings.TrimSpace(sub)
+			if len(sub) == 0 {
+				continue
+			}
 			if iw, exist := charWordIndexSet[sub]; !exist {
 				charWordIndexSet[sub] = IndexWord{
 					Type:    0,

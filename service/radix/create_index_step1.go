@@ -58,8 +58,8 @@ func step1_proc_read_csv_dict_words(dictName string, filePath string, recordCh c
 			continue
 		}
 
-		name := record[0]
-		data := record[1]
+		name := strings.TrimSpace(record[0])
+		data := strings.TrimSpace(record[1])
 		if name == "" {
 			continue
 		}

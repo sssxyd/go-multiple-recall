@@ -8,7 +8,7 @@ type RadixNode struct {
 	childRuneMax int
 }
 
-func (rn *RadixNode) calc_chile_rune_length() {
+func (rn *RadixNode) calc_child_rune_length() {
 	min := 0
 	max := 0
 	for k, _ := range rn.Children {
@@ -35,7 +35,7 @@ func (rn *RadixNode) GetChildRuneMin() int {
 	if len(rn.Children) == 0 {
 		return 0
 	}
-	rn.calc_chile_rune_length()
+	rn.calc_child_rune_length()
 	return rn.chileRuneMin
 }
 
@@ -46,6 +46,6 @@ func (rn *RadixNode) GetChildRuneMax() int {
 	if len(rn.Children) == 0 {
 		return 0
 	}
-	rn.calc_chile_rune_length()
+	rn.calc_child_rune_length()
 	return rn.childRuneMax
 }

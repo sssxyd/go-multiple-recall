@@ -30,9 +30,13 @@ func NewIndex(dict_dir string, index_dir string, index_name string, maskCount in
 	repeat_count := step2_main_collect_word_repeat_parts(db)
 	log.Printf(">>>Step2: 计算得出 %d 个高频出现的前缀后缀，耗时 %d ms", repeat_count, time.Now().UnixMilli()-start_time)
 
-	// start_time = time.Now().UnixMilli()
-	// index_count := step3_main_create_index_words(db, maskCount, minFreq)
-	// log.Printf(">>>Setp3: 创建索引 %d 条记录，耗时 %d ms", index_count, time.Now().UnixMilli()-start_time)
+	start_time = time.Now().UnixMilli()
+	index_count := step3_main_create_index_words(db, maskCount, minFreq)
+	log.Printf(">>>Setp3: 创建索引 %d 条记录，耗时 %d ms", index_count, time.Now().UnixMilli()-start_time)
+
+	start_time = time.Now().UnixMilli()
+	node_count := step4_main_create_radix_node(db)
+	log.Printf(">>>Setp4: 创建节点 %d 条记录，耗时 %d ms", node_count, time.Now().UnixMilli()-start_time)
 
 	return index_path, nil
 }
@@ -48,8 +52,14 @@ func DebugIndex(index_path string, maskCount int, minFreq int) (string, error) {
 	defer db.Close()
 
 	start_time = time.Now().UnixMilli()
-	index_count := step3_main_create_index_words(db, maskCount, minFreq)
-	log.Printf(">>>Setp3: 创建索引 %d 条记录，耗时 %d ms", index_count, time.Now().UnixMilli()-start_time)
+	// index_count := step3_main_create_index_words(db, maskCount, minFreq)
+	// log.Printf(">>>Setp3: 创建索引 %d 条记录，耗时 %d ms", index_count, time.Now().UnixMilli()-start_time)
+
+	// index_count := step4_main_create_radix_node(db)
+	// log.Printf(">>>Setp4: 创建平铺节点 %d 条记录，耗时 %d ms", index_count, time.Now().UnixMilli()-start_time)
+
+	step5_main_clac_heirarchy(db)
+	log.Printf(">>>Setp5: 耗时 %d ms", time.Now().UnixMilli()-start_time)
 
 	return index_path, nil
 }

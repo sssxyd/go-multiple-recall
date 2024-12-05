@@ -46,7 +46,7 @@ func main() {
 	// 	log.Printf("Index created at: %s\n", index_path)
 	// }
 
-	index_path := filepath.Join(base_dir, "index", "1115.bin")
+	index_path := filepath.Join(base_dir, "index", "1122.bin")
 	_, err = radix.DebugIndex(index_path, 2, 100)
 	if err != nil {
 		log.Printf("Error creating index: %v\n", err)
